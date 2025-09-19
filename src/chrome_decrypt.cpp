@@ -410,6 +410,7 @@ namespace Payload
             m_pipe = CreateFileW(pipeName, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
         }
 
+        // A destructor called when the pipe goes out of scope.
         ~PipeLogger()
         {
             if (m_pipe != INVALID_HANDLE_VALUE)
