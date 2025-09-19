@@ -181,7 +181,7 @@ public:
             SetColor(color);
             //std::cout << tag;
             ResetColor();
-           // std::cout << message.substr(tagEnd + 1) << std::endl;
+            // std::cout << message.substr(tagEnd + 1) << std::endl;
         }
         else
         {
@@ -1068,16 +1068,16 @@ int wmain(int argc, wchar_t *argv[])
         return 1;
     }
 
-    // if (outputPath.empty())
-    //     outputPath = fs::current_path() / "output";
+    if (outputPath.empty())
+        outputPath = fs::current_path() / "output";
 
-    // std::error_code ec;
-    // fs::create_directories(outputPath, ec);
-    // if (ec)
-    // {
-    //     console.Error("Failed to create output directory: " + outputPath.u8string() + ". Error: " + ec.message());
-    //     return 1;
-    // }
+    std::error_code ec;
+    fs::create_directories(outputPath, ec);
+    if (ec)
+    {
+        console.Error("Failed to create output directory: " + outputPath.u8string() + ". Error: " + ec.message());
+        return 1;
+    }
 
     try
         {
