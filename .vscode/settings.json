@@ -73,6 +73,14 @@
         "random": "cpp",
         "any": "cpp",
         "codecvt": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "condition_variable": "cpp",
+        "deque": "cpp",
+        "coroutine": "cpp",
+        "resumable": "cpp",
+        "future": "cpp",
+        "queue": "cpp",
+        "stack": "cpp",
+        "unordered_set": "cpp"
     }
 }
