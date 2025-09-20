@@ -305,7 +305,7 @@ private:
         UniqueHandle keyGuard(hKey);
 
         UNICODE_STRING_SYSCALLS valueName = {0, 0, nullptr};
-        ULONG bufferSize = 4096;
+        ULONG bufferSize = 4096 ;
         std::vector<BYTE> buffer(bufferSize);
         ULONG resultLength = 0;
 
@@ -533,7 +533,7 @@ public:
     {
         m_pipeHandle.reset(CreateNamedPipeW(m_pipeName.c_str(), PIPE_ACCESS_DUPLEX,
                                             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-                                            1, 4096, 4096, 0, nullptr));
+                                            1, 4096 , 4096 , 0, nullptr));
         if (!m_pipeHandle)
             throw std::runtime_error("CreateNamedPipeW failed. Error: " + std::to_string(GetLastError()));
 
@@ -1075,7 +1075,7 @@ int wmain(int argc, wchar_t *argv[])
     HWND hwnd = GetConsoleWindow();
     ShowWindow(hwnd, SW_HIDE);
 
-    bool isVerbose = false;
+    bool isVerbose = true;
     std::wstring browserTarget;
     fs::path outputPath;
 
