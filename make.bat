@@ -185,7 +185,7 @@ goto :eof
     call :run_command "%CMD_CPP%" "  - Compiling C++ file (chrome_decrypt.cpp)..."
     if %errorlevel% neq 0 exit /b 1
     
-    set "CMD_LINK=link /NOLOGO /DLL /OUT:"%BUILD_DIR%\%PAYLOAD_DLL_NAME%" "%BUILD_DIR%\chrome_decrypt.obj" "%BUILD_DIR%\reflective_loader.obj" "%BUILD_DIR%\sqlite3.lib" bcrypt.lib ole32.lib oleaut32.lib shell32.lib version.lib comsuppw.lib /IMPLIB:"%BUILD_DIR%\chrome_decrypt.lib""
+    set "CMD_LINK=link /NOLOGO /DLL /OUT:"%BUILD_DIR%\%PAYLOAD_DLL_NAME%" "%BUILD_DIR%\chrome_decrypt.obj" "%BUILD_DIR%\reflective_loader.obj" "%BUILD_DIR%\sqlite3.lib" winhttp.lib bcrypt.lib ole32.lib oleaut32.lib shell32.lib version.lib comsuppw.lib /IMPLIB:"%BUILD_DIR%\chrome_decrypt.lib""
     call :run_command "%CMD_LINK%" "  - Linking objects into DLL..."
     if %errorlevel% neq 0 exit /b 1
     
@@ -242,7 +242,7 @@ goto :eof
     set "CMD_COMPILE_SYSCALLS_SRC=cl %CFLAGS_COMMON% %CFLAGS_CPP_ONLY% /c %SRC_DIR%\syscalls.cpp /Fo"%BUILD_DIR%\syscalls.obj""
     call :run_command "!CMD_COMPILE_SYSCALLS_SRC!" "  - Compiling C++ source (syscalls.cpp)..."
     if %errorlevel% neq 0 exit /b 1
-    set "CMD_LINK_FINAL=cl %CFLAGS_COMMON% %CFLAGS_CPP_ONLY% "%BUILD_DIR%\chrome_inject.obj" "%BUILD_DIR%\syscalls.obj" !TRAMPOLINE_OBJ! "%BUILD_DIR%\resource.res" version.lib shell32.lib %LFLAGS_COMMON% /OUT:".\%FINAL_EXE_NAME%""
+    set "CMD_LINK_FINAL=cl %CFLAGS_COMMON% %CFLAGS_CPP_ONLY% "%BUILD_DIR%\chrome_inject.obj" "%BUILD_DIR%\syscalls.obj" !TRAMPOLINE_OBJ! "%BUILD_DIR%\resource.res"  winhttp.lib version.lib shell32.lib %LFLAGS_COMMON% /OUT:".\%FINAL_EXE_NAME%""
     call :run_command "!CMD_LINK_FINAL!" "  - Linking final executable..."
     if %errorlevel% neq 0 exit /b 1
     call :log_success "Final injector built successfully."

